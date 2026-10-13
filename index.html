@@ -1203,6 +1203,31 @@ button {
 
 }
 
+
+/* Compact priority counts beside geographic filters */
+.filter-title-line{display:flex;align-items:center;justify-content:space-between;gap:7px;flex-wrap:wrap}
+.filter-title-line .section-title{margin-bottom:0}
+.priority-counts{color:#475467;font-size:11px;font-weight:800;white-space:nowrap;letter-spacing:0}
+.tehsil-counts{text-align:right;margin-top:-19px;margin-bottom:10px}
+@media(max-width:400px){.priority-counts{font-size:10px}}
+
+/* Coloured P1/P2/P3 badges beside every district and tehsil name */
+.native-hidden{display:none!important}
+.location-dropdown{position:relative;width:100%;margin-top:7px}
+.geo-trigger,.geo-option{display:flex;align-items:center;gap:7px;width:100%;min-width:0;text-align:left;border:1px solid #d0d5dd;background:#fff;border-radius:9px;min-height:48px;padding:8px 9px;cursor:pointer;color:#101828}
+.geo-trigger{font-size:13px;font-weight:800}
+.geo-chevron{font-size:15px;color:#667085;flex-shrink:0}
+.geo-name{flex:1;min-width:0;overflow-wrap:anywhere;font-size:12px;font-weight:800}
+.geo-badges{display:flex;align-items:center;gap:3px;flex-shrink:0}
+.priority-pill{display:inline-flex;align-items:center;gap:5px;border:1px solid;border-radius:8px;padding:5px 6px;font-size:11px;line-height:1;font-weight:900;white-space:nowrap}
+.priority-p1{background:#fee4e2;border-color:#fecdca;color:#b42318}
+.priority-p2{background:#dbeafe;border-color:#bfdbfe;color:#1d4ed8}
+.priority-p3{background:#ede9fe;border-color:#ddd6fe;color:#6d28d9}
+.geo-menu{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;max-height:350px;overflow-y:auto;overscroll-behavior:contain;background:#fff;border:1px solid #d0d5dd;border-radius:9px;box-shadow:0 10px 30px rgba(16,24,40,.2);z-index:5000;padding:4px}
+.location-dropdown.expanded .geo-menu{display:block}
+.geo-option{border:0;border-radius:6px;min-height:42px;margin:1px 0;padding:7px 5px;font-size:12px}
+.geo-option:hover,.geo-option.selected{background:#f2f4f7}
+@media(max-width:420px){.priority-pill{gap:3px;padding:5px 4px;font-size:10px}.geo-badges{gap:2px}.geo-name{font-size:11px}}
 </style>
 
 </head>
@@ -1360,7 +1385,7 @@ button {
         
 <div class="section">
  <div class="section-title">District Filter</div>
- <select id="districtFilter"><option value="ALL">All Districts</option></select>
+ <select id="districtFilter" class="native-hidden"><option value="ALL">All Districts</option></select><div id="districtDropdown" class="location-dropdown"></div>
  <div style="font-size:11px;color:#667085;margin-top:6px" id="dataStatus">Connecting to Bihar Google Sheet...</div>
 </div>
 
@@ -1379,7 +1404,7 @@ button {
 
 
             <select
-                id="tehsilFilter"
+                id="tehsilFilter" class="native-hidden"
             >
 
                 <option value="ALL">
@@ -1389,7 +1414,7 @@ button {
                 </option>
 
             </select>
-
+            <div id="tehsilDropdown" class="location-dropdown"></div>
 
         </div>
 
@@ -1537,14 +1562,46 @@ function popup(p){let fields=['Sr_No','State','District','Tehsil','Town Code','T
 function markerIcon(p){const compact=districtFilter.value==='ALL';const size=compact?18:31;return L.divIcon({className:'location-marker',html:`<div class="location-badge" style="background:${(TYPE_COLORS[p.villageType]||'#667085')};width:${size}px;height:${size}px;font-size:${compact?7:9}px;border-width:${compact?1:2}px">${escapeHtml(p.villageType)}</div>`,iconSize:[size,size],iconAnchor:[size/2,size/2]});}
 function drawNetwork(){networkLayer.clearLayers();distanceLayer.clearLayers();if(!$('showNetwork').checked){$('visibleLines').textContent='0';return}const links=new Set();visible.forEach(p=>nearestFor(p,visible).forEach(({point:q,distance})=>{const key=[p.id,q.id].sort((a,b)=>a-b).join(':');if(links.has(key))return;links.add(key);let mid=[(p.lat+q.lat)/2,(p.lon+q.lon)/2];const a=[p.lat,p.lon],b=[q.lat,q.lon];const colA=(TYPE_COLORS[p.villageType]||'#667085'),colB=TYPE_COLORS[q.villageType];L.polyline([a,mid],{color:colA,weight:3,opacity:.7}).addTo(networkLayer);L.polyline([mid,b],{color:colB,weight:3,opacity:.7}).addTo(networkLayer);if(districtFilter.value!=='ALL' && $('showDistances').checked)L.marker(mid,{interactive:false,icon:L.divIcon({className:'distance-marker',html:`<div class="distance-label">${distance.toFixed(1)} km</div>`,iconSize:[1,1]})}).addTo(distanceLayer)}));$('visibleLines').textContent=links.size;}
 function drawGPS(fit=false){gpsLayer.clearLayers();$('locationResults').innerHTML='';if(!currentGPS){$('locationStatus').textContent='Enable location to see the nearest five locations matching your District, Tehsil and type filters.';return;}const p=currentGPS;const dot=L.divIcon({className:'user-location-marker',html:'<div class="user-location-dot"></div>',iconSize:[22,22],iconAnchor:[11,11]});L.marker([p.lat,p.lon],{icon:dot,zIndexOffset:2000}).bindPopup('Your current location').addTo(gpsLayer);const ranked=visible.map(q=>({point:q,distance:km(p,q)})).sort((a,b)=>a.distance-b.distance).slice(0,5);$('autoLocationMessage').className='location-banner '+(ranked.length?'success':'warning');$('autoLocationMessage').textContent=ranked.length?`✓ ${ranked.length} nearest locations within active filters`:'No matching locations';$('locationStatus').textContent=ranked.length?'Nearest by straight-line distance, restricted to selected District, Tehsil and village types.':'No locations match the current filters.';let bounds=[[p.lat,p.lon]];ranked.forEach(({point:q,distance},i)=>{const rank=i+1,color=TYPE_COLORS[q.villageType],url=mapsURL(q);let card=document.createElement('div');card.className='nearest-card';card.innerHTML=`<div class="nearest-rank" style="background:${color}">${rank}</div><div><div class="nearest-name">${escapeHtml(q.town)}</div><div class="nearest-meta">${escapeHtml(q.tehsil)} · ${escapeHtml(q.villageType)} · ${escapeHtml(q.District)}</div><a class="gmap-link-small" href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">↗ Google Maps</a></div><div class="nearest-distance">${distance.toFixed(1)} km</div>`;card.addEventListener('click',e=>{if(e.target.closest('a'))return;map.setView([q.lat,q.lon],14);markerMap.get(q.id)?.openPopup();if(innerWidth<=768)$('sidebar').classList.remove('open')});$('locationResults').appendChild(card);L.polyline([[p.lat,p.lon],[q.lat,q.lon]],{color,weight:3,dashArray:'7 6',opacity:.75}).addTo(gpsLayer);const ico=L.divIcon({className:'nearest-live-marker',html:`<div class="nearest-live-wrap"><div class="nearest-live-rank" style="background:${color}">${rank}</div><div class="nearest-live-type" style="background:${color}">${q.villageType}</div><div class="nearest-live-distance">${distance.toFixed(1)} km</div></div>`,iconSize:[1,1],iconAnchor:[0,18]});L.marker([q.lat,q.lon],{icon:ico,zIndexOffset:1500}).bindPopup(()=>popup(q)).addTo(gpsLayer);bounds.push([q.lat,q.lon])});if(fit&&ranked.length)map.fitBounds(bounds,{padding:[55,55],maxZoom:13});}
-function applyFilters(){visible=eligible();nodeLayer.clearLayers();markerMap.clear();visible.forEach(p=>{let m=L.marker([p.lat,p.lon],{icon:markerIcon(p),title:p.town}).bindTooltip(`${escapeHtml(p.town)} · ${p.villageType}`,{direction:'top',offset:[0,-12]}).bindPopup(()=>popup(p),{maxWidth:420}).addTo(nodeLayer);markerMap.set(p.id,m)});$('visibleLocations').textContent=visible.length;drawNetwork();drawGPS(false);if(visible.length)map.fitBounds(visible.map(p=>[p.lat,p.lon]),{padding:[35,35],maxZoom:13});}
+function applyFilters(){updatePriorityCounts();visible=eligible();nodeLayer.clearLayers();markerMap.clear();visible.forEach(p=>{let m=L.marker([p.lat,p.lon],{icon:markerIcon(p),title:p.town}).bindTooltip(`${escapeHtml(p.town)} · ${p.villageType}`,{direction:'top',offset:[0,-12]}).bindPopup(()=>popup(p),{maxWidth:420}).addTo(nodeLayer);markerMap.set(p.id,m)});$('visibleLocations').textContent=visible.length;drawNetwork();drawGPS(false);if(visible.length)map.fitBounds(visible.map(p=>[p.lat,p.lon]),{padding:[35,35],maxZoom:13});}
 function findAndShowNearestFive(){if(requesting)return;if(!navigator.geolocation){$('autoLocationMessage').textContent='Geolocation not supported';return;}requesting=true;$('autoLocationMessage').className='location-banner';$('autoLocationMessage').textContent='◎ Getting your current location...';navigator.geolocation.getCurrentPosition(pos=>{requesting=false;currentGPS={lat:pos.coords.latitude,lon:pos.coords.longitude};drawGPS(true);},err=>{requesting=false;$('autoLocationMessage').className='location-banner warning';$('autoLocationMessage').textContent=err.code===1?'Location permission denied':'Location unavailable';$('locationStatus').textContent='Location needs HTTPS or localhost and browser permission. Filters and map still work.';},{enableHighAccuracy:true,timeout:18000,maximumAge:30000});}
 districtFilter.addEventListener('change',()=>{refreshTehsils();applyFilters()});tehsilFilter.addEventListener('change',applyFilters);$('showNetwork').addEventListener('change',drawNetwork);$('showDistances').addEventListener('change',drawNetwork);$('resetFilters').addEventListener('click',()=>{districtFilter.value='ALL';refreshTehsils();tehsilFilter.value='ALL';types.forEach(x=>x.checked=true);$('showNetwork').checked=true;$('showDistances').checked=true;applyFilters()});$('refreshLocation').addEventListener('click',findAndShowNearestFive);$('mobileControlsButton').addEventListener('click',()=>$('sidebar').classList.add('open'));$('closePanel').addEventListener('click',()=>$('sidebar').classList.remove('open'));window.addEventListener('resize',()=>map.invalidateSize());applyFilters();setTimeout(findAndShowNearestFive,600);
 
 const SHEET_CSV='https://docs.google.com/spreadsheets/d/1dWD-8PzvQt-5UNLpBlD-qJ0NBs4jJes_ywfOM5NWBSk/export?format=csv&gid=0';
 function optionsFor(select,values,allLabel){const prev=select.value;select.replaceChildren();const first=new Option(allLabel,'ALL');select.add(first);values.sort((a,b)=>a.localeCompare(b)).forEach(x=>select.add(new Option(x,x)));select.value=values.includes(prev)?prev:'ALL';}
+function renderGeographyDropdown(select, containerId, allLabel) {
+ const host=$(containerId);
+ const selected=select.value;
+ const district=districtFilter.value;
+ const rowsFor=(value)=>{
+  if(select===districtFilter)return DATA.filter(p=>value==='ALL'||p.District===value);
+  return DATA.filter(p=>(district==='ALL'||p.District===district)&&(value==='ALL'||p.tehsil===value));
+ };
+ const badges=(rows)=>['P1','P2','P3'].map(t=>{
+  const count=rows.reduce((n,p)=>n+(p.villageType===t?1:0),0);
+  return `<span class="priority-pill priority-${t.toLowerCase()}"><b>${t}</b><b>${count.toLocaleString('en-IN')}</b></span>`;
+ }).join('');
+ const selectedLabel=Array.from(select.options).find(o=>o.value===selected)?.textContent||allLabel;
+ const priorOpen=host.classList.contains('expanded');
+ host.innerHTML=`<button type="button" class="geo-trigger" aria-label="${escapeHtml(allLabel)}" aria-expanded="${priorOpen}" aria-haspopup="listbox"><span class="geo-name">${escapeHtml(selectedLabel)}</span><span class="geo-badges">${badges(rowsFor(selected))}</span><span class="geo-chevron">▾</span></button><div class="geo-menu" role="listbox">${Array.from(select.options).map(o=>`<button type="button" class="geo-option ${o.value===selected?'selected':''}" role="option" aria-selected="${o.value===selected}" data-value="${escapeHtml(o.value)}"><span class="geo-name">${escapeHtml(o.textContent)}</span><span class="geo-badges">${badges(rowsFor(o.value))}</span></button>`).join('')}</div>`;
+ host.classList.toggle('expanded',priorOpen);
+ host.querySelector('.geo-trigger').addEventListener('click',()=>{
+  const opening=!host.classList.contains('expanded');
+  document.querySelectorAll('.location-dropdown.expanded').forEach(e=>{e.classList.remove('expanded');e.querySelector('.geo-trigger')?.setAttribute('aria-expanded','false')});
+  host.classList.toggle('expanded',opening);
+  host.querySelector('.geo-trigger').setAttribute('aria-expanded',String(opening));
+ });
+ host.querySelectorAll('.geo-option').forEach(btn=>btn.addEventListener('click',()=>{
+   host.classList.remove('expanded'); select.value=btn.dataset.value;
+   select.dispatchEvent(new Event('change',{bubbles:true}));
+ }));
+}
+function updatePriorityCounts(){
+ renderGeographyDropdown(districtFilter,'districtDropdown','All Districts');
+ renderGeographyDropdown(tehsilFilter,'tehsilDropdown','All Tehsils');
+}
 function refreshTehsils(){const d=districtFilter.value;optionsFor(tehsilFilter,[...new Set(DATA.filter(p=>d==='ALL'||p.District===d).map(p=>p.tehsil))],'All Tehsils');}
 function refreshDistricts(){optionsFor(districtFilter,[...new Set(DATA.map(p=>p.District))],'All Districts');refreshTehsils();}
+document.addEventListener('click',e=>{if(e.target.closest('.location-dropdown'))return;document.querySelectorAll('.location-dropdown.expanded').forEach(el=>{el.classList.remove('expanded');el.querySelector('.geo-trigger')?.setAttribute('aria-expanded','false')});});
 function parseCSV(input){let rows=[],row=[],value='',quoted=false;input=input.replace(/^\uFEFF/,'');for(let i=0;i<input.length;i++){const c=input[i];if(quoted){if(c==='"'&&input[i+1]==='"'){value+='"';i++}else if(c==='"')quoted=false;else value+=c}else if(c==='"')quoted=true;else if(c===','||c==='\t'&&input.indexOf(',')<0){row.push(value);value=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&input[i+1]==='\n')i++;row.push(value);if(row.some(x=>x.trim()))rows.push(row);row=[];value=''}else value+=c}row.push(value);if(row.some(x=>x.trim()))rows.push(row);return rows;}
 function normalizeRows(text){const rows=parseCSV(text);if(rows.length<2)throw Error('Sheet has no data rows');const headers=rows.shift().map(x=>x.trim().toLowerCase().replace(/[^a-z0-9]/g,''));const idx=(...names)=>headers.findIndex(h=>names.some(n=>n.toLowerCase().replace(/[^a-z0-9]/g,'')===h));const get=(r,...keys)=>{const i=idx(...keys);return i<0?'':String(r[i]??'').trim()};const req=['District','Tehsil','Town/Village','Latitude','Longitude'];if(req.some(k=>idx(k)<0))throw Error('Required columns missing: '+req.filter(k=>idx(k)<0).join(', '));const num=v=>v===''?null:Number.isFinite(Number(v))?Number(v):null;let invalid=0;let mapped=rows.map((r,i)=>{let lat=num(get(r,'Latitude')),lon=num(get(r,'Longitude'));if(lat===null||lon===null||Math.abs(lat)>90||Math.abs(lon)>180){invalid++;return null}const p={'id':i,'Sr_No':get(r,'Sr_No'),'State':get(r,'State')||'Bihar','District':get(r,'District'),'Tehsil':get(r,'Tehsil'),'Town Code':get(r,'Town Code'),'Town/Village':get(r,'Town/Village'),'Population':num(get(r,'Population')),'Village Type':get(r,'Village Type').toUpperCase(),'Approx. FMCG Outlet':num(get(r,'Approx. FMCG Outlet','Approx FMCG Outlet')),'Dependent Population':num(get(r,'Dependent Population')),'Latitude':lat,'Longitude':lon,'lat':lat,'lon':lon,'town':get(r,'Town/Village'),'tehsil':get(r,'Tehsil'),'villageType':get(r,'Village Type').toUpperCase()};p.partyCount=0;for(let j=1;j<=14;j++){const name=get(r,'Parties.'+j,'Party_'+j,'Party '+j);p['Party_'+j]=name||'No Party Name Provided';if(name)p.partyCount++}return p}).filter(Boolean);if(!mapped.length)throw Error('No valid geocoded records found');return {mapped,invalid};}
 function updateTypeOptions(){const typesAvailable=[...new Set(DATA.map(p=>p.villageType))];typesAvailable.forEach(t=>{if(types.has(t))return;const wrap=document.createElement('div');wrap.className='type-check';const clr=TYPE_COLORS[t]||'#667085';wrap.innerHTML=`<input id="type_${escapeHtml(t)}" type="checkbox" checked><span class="type-dot" style="background:${clr}"></span><label for="type_${escapeHtml(t)}">${escapeHtml(t)}</label>`;$('typeFilters').appendChild(wrap);const check=wrap.querySelector('input');types.set(t,check);check.addEventListener('change',applyFilters);const lr=document.createElement('div');lr.className='legend-row';lr.innerHTML=`<span class="legend-dot" style="background:${clr}"></span><span>${escapeHtml(t)}</span>`;$('legend').appendChild(lr);});}
